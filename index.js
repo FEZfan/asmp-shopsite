@@ -39,17 +39,20 @@ const WAYSTONES_PATH = "waystones.json";
 const IGNORED_WAYSTONES_PATH = "ignoredWaystones.json";
 const IGNORED_SHOPS_PATH = "ignoredShops.json";
 const NEWS_PATH = "news.json";
+const GRAPHS_PATH = "graphs.json";
 
 let items = loadItems();
 let waystones = loadWaystones();
 let ignoredWaystones = loadIgnoredWaystones();
 let ignoredShops = loadIgnoredShops();
 let news = loadNews();
+let graphs = loadGraphs();
 setInterval(() => {
     waystones = loadWaystones();
     ignoredWaystones = loadIgnoredWaystones();
     ignoredShops = loadIgnoredShops();
     news = loadNews();
+    graphs = loadGraphs();
 }, 30000);
 
 app.get('/asmp', (req, res) => {
@@ -77,6 +80,15 @@ app.get('/asmp/waytones', (req, res) => {
     res.send(html);
 });
 
+app.get('/asmp/graphs', (req, res) => {
+    console.log("GET /asmp/graphs opened");
+    incrementVisit('graphs');
+    let html = fs.readFileSync(__dirname + '/graphs.html', 'utf-8');
+    html = html.replace('<!--NEWS_JSON-->', JSON.stringify(news));
+    html = html.replace('<!--GRAPHS_JSON-->', JSON.stringify(graphs));
+    res.send(html);
+});
+
 app.get('/asmp/waystones', (req, res) => {
     console.log("GET /asmp/waystones opened");
     incrementVisit('waystones');
@@ -91,6 +103,32 @@ app.get('/asmp/api/waystones', (req, res) => {
 app.get('/asmp/api/shops', (req, res) => {
     console.log("GET /asmp/api/shops opened");
     res.json(items);
+});
+
+app.get('/asmp/api/graphs', (req, res) => {
+    console.log("GET /asmp/api/graphs opened");
+    res.json(graphs);
+});
+
+app.post('/asmp/api/graphs', (req, res) => {
+    console.log("POST /asmp/api/graphs with body:", JSON.stringify(req.body));
+    const { graph, value } = req.body;
+    
+    if (!graph || value === undefined) {
+        return res.status(400).json({ error: 'Missing graph or value in request body.' });
+    }
+    
+    // Find the graph entry or create it
+    const graphIndex = graphs.graphs.findIndex(g => g.graph === graph);
+    
+    if (graphIndex !== -1) {
+        graphs.graphs[graphIndex].value = value;
+    } else {
+        graphs.graphs.push({ graph, value });
+    }
+    
+    saveGraphs();
+    res.json({ success: true, message: 'Graph value updated.' });
 });
 
 app.post('/asmp/post', (req, res) => {
@@ -381,4 +419,16 @@ function loadNews() {
         return JSON.parse(data);
     }
     return { news: [] };
+}
+
+function loadGraphs() {
+    if (fs.existsSync(GRAPHS_PATH)) {
+        const data = fs.readFileSync(GRAPHS_PATH, 'utf-8');
+        return JSON.parse(data);
+    }
+    return { graphs: [] };
+}
+
+function saveGraphs() {
+    fs.writeFileSync(GRAPHS_PATH, JSON.stringify(graphs, null, 2), 'utf-8');
 }
