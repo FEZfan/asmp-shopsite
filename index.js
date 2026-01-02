@@ -134,7 +134,11 @@ app.post('/asmp/api/graphs', (req, res) => {
 app.post('/asmp/post', (req, res) => {
     console.log("POST /asmp/post with body:", JSON.stringify(req.body));
     
-    // Backwards compatibility: handle both new format { shops: [...], waystones: [...] } and old format [shops...]
+    // Backwards compatibility: handle multiple formats
+    // Old format: [shops...] (array of shops)
+    // New format: { shops: [...] } (just shops)
+    // New format: { waystones: [...] } (just waystones)
+    // New format: { shops: [...], waystones: [...] } (both)
     let shopsData = [];
     let waystonesData = [];
     
@@ -142,13 +146,23 @@ app.post('/asmp/post', (req, res) => {
         // Old format: just shops array
         shopsData = req.body;
         waystonesData = [];
-    } else if (req.body && typeof req.body === 'object' && Array.isArray(req.body.shops) && Array.isArray(req.body.waystones)) {
-        // New format: { shops: [...], waystones: [...] }
-        shopsData = req.body.shops;
-        waystonesData = req.body.waystones;
+    } else if (req.body && typeof req.body === 'object') {
+        // New format: object with shops and/or waystones
+        if (Array.isArray(req.body.shops)) {
+            shopsData = req.body.shops;
+        }
+        if (Array.isArray(req.body.waystones)) {
+            waystonesData = req.body.waystones;
+        }
+        
+        // Validate that at least one is provided
+        if (!Array.isArray(req.body.shops) && !Array.isArray(req.body.waystones)) {
+            console.log("Invalid data format: " + JSON.stringify(req.body))
+            return res.status(400).send("Invalid data format. Expected { shops: [...] }, { waystones: [...] }, { shops: [...], waystones: [...] }, or [shops...]");
+        }
     } else {
         console.log("Invalid data format: " + JSON.stringify(req.body))
-        return res.status(400).send("Invalid data format. Expected { shops: [...], waystones: [...] } or [shops...]");
+        return res.status(400).send("Invalid data format. Expected { shops: [...] }, { waystones: [...] }, { shops: [...], waystones: [...] }, or [shops...]");
     }
 
     // Filter out ignored shopsnd
